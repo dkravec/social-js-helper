@@ -1,4 +1,37 @@
 const WebSocket = require('ws')
+require('dotenv').config()
+// helpful info about classes https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes
+const Interact = class {
+    ws = null
+    headerTokens = null
+    environment = null
+    
+    constructor({beta, environment}) {
+        console.log(beta)
+        if (
+            (environment == 'node') || 
+            (environment == 'web')
+        ) {
+            this.environment = environment 
+        } else {
+            this.environment = 'node'
+        }
+    }
+
+    setTokens({ devToken, appToken, accessToken, userToken, userID}) {
+        this.headerTokens = {
+            devtoken: devToken,
+            apptoken: appToken,
+            accesstoken: accessToken,
+            usertoken: userToken,
+            userid: userID
+        }
+    }
+
+    checkTokens() {
+        return this.headerTokens
+    }
+}
 
 const Client = class {
     constructor(beta) {
@@ -78,20 +111,37 @@ const Client = class {
     }
 }
 
-    
-const client = new Client(true)
-client.login(true)
-console.log(client.ready())
-// client.thisTest()
+interacTest()
 
-const messageSend = {
-    type: 2,
-    apiVersion: "1.0",
-    message: {
-        content: `This is a test.`	
-    }
+function interacTest() {
+    const interact = new Interact(true) 
+    interact.setTokens({
+        devToken: process.env.DEVTOKEN,
+        appToken: process.env.APPTOKEN,
+        accessToken: process.env.ACCESSTOKEN,
+        userToken: process.env.USERTOKEN,
+        userID: process.env.USERID
+    })
+
+    const tokens = interact.checkTokens()
+    console.log(tokens)
 }
-client.send(messageSend)
+
+function testmain() {    
+    const client = new Client(true)
+    client.login(true)
+    console.log(client.ready())
+    // client.thisTest()
+
+    const messageSend = {
+        type: 2,
+        apiVersion: "1.0",
+        message: {
+            content: `This is a test.`	
+        }
+    }
+    client.send(messageSend)
+}
 
 // client.send(messageSend)
 
