@@ -5,7 +5,9 @@ const posibleAPIVersions = ["v1", "v2(fake)"];
 
 const Interact = class {
     apiURL = 'https://interact-api.novapro.net/'
-
+    possibleAPIVersions = []
+    possibleRoutes = []
+    
     constructor({beta, environment}) {
         console.log(beta)
         if (
@@ -22,26 +24,28 @@ const Interact = class {
         };
     };
 
-    setApiVersion({version}) {
-        if (posibleAPIVersions.find(ver=> ver===version)) {
+    async setApiVersion({version}) {
+        if (!this.possibleAPIVersions[0]) await this.findPossibleRoutes()
+
+        if (this.possibleAPIVersions.find(ver=> ver===version)) {
             this.apiVersion = version;
-            return this.apiVersion;
+            return {"error" : false, "message" : this.apiVersion };
         } else {
-            return `The version number provided is not allowed. Please pick from list: ${posibleAPIVersions}`;
+            return { "error" : true, "message" : `The api version number provided is not allowed. Please pick from list: ${posibleAPIVersions}` };
         };
     };
     
     setBeta({beta}) {
         if (beta===null) {
-            return "Please write if you would like to request. Interact.setBeta() error.";
+            return { "error" : true, "message" : "Please write if you would like to request. Interact.setBeta() error." };
         } else if (beta==true) {
             this.apiURL = "http://localhost:5002/"
-            return `Beta mode is activated. Now using ${this.apiURL} as API url.`;
+            return { "error" : false, "message" : `Beta mode is activated. Now using ${this.apiURL} as API url.` };
         } else if (beta===false) {
             this.apiURL = "https://interact-api.novapro.net/";
-            return `Beta mode is deactivated. Now using ${this.apiURL} as API url.`;
+            return { "error" : false, "message" : `Beta mode is deactivated. Now using ${this.apiURL} as API url.` };
         } else {
-            return "Please select an if you would like a beta. true or false. Interact.setBeta() error.";
+            return { "error" : true, "message" : "Please select an if you would like a beta. true or false. Interact.setBeta() error." };
         };
     };
 
@@ -61,16 +65,37 @@ const Interact = class {
         return this.headerTokens;
     };
 
-    async api({ route, version }) {
-        var useVersion = this.apiVersion;
-        if (version) {
-            if (posibleAPIVersions.find(ver=> ver===version)) {
-                useVersion = version;
-                return this.apiVersion;
+    async findPossibleRoutes() {
+        if (this.possibleRoutes[0]) this.possibleRoutes=[];
+        if (this.possibleAPIVersions[0]) this.possibleAPIVersions=[];
+
+        const resPoss = await fetch(`${this.apiURL}API/possibleRoutes/`, { method: 'GET', headers: this.headerTokens });
+        if (resPoss.error) possibleRoutes = false;
+        const dataPoss = await resPoss.json();
+
+        for (const route of dataPoss) {
+            const newRoute = route.replace("/../../", "");
+            if (newRoute.startsWith("/")) {
+                this.possibleAPIVersions.push(newRoute.replace("/", ""));
             } else {
-                return `The version number provided is not allowed. Please pick from list: ${posibleAPIVersions}`;
+                this.possibleRoutes.push(newRoute);
             };
         };
+        return { "possibleRoutes" : this.possibleRoutes, "possibleVersions" : this.possibleAPIVersions };
+    };
+
+    async api({ route, version }) {
+        if (!this.possibleRoutes[0] || !this.possibleAPIVersions[0]) await this.findPossibleRoutes();
+
+        var useVersion = this.apiVersion;
+        if (version != undefined) useVersion = version;
+
+        var possibleRoute = false;
+        for (const routePossible of this.possibleRoutes) {
+            if (routePossible==`${useVersion}/${route}`) possibleRoute = true;
+        };
+
+        if (!possibleRoute) return { "error" : true, "message" : `The route ${useVersion}/${route}, was not found to be in the possible list. Please check the version number, and the spelling. You can check the Interact API Documentation for more information. Interact.api() Error.` }
 
         const res = await fetch(`${this.apiURL}${useVersion}/${route}/`, { method: 'GET', headers: this.headerTokens });
         if (res.error) return { "error" : true, "response ": res }
@@ -188,13 +213,19 @@ async function interacTest() {
     console.log('-- setBeta test');
     console.log(betaEnv2);
 
-    const setVersion = interact.setApiVersion({ version: "v1" });
+    const setVersion = await interact.setApiVersion({ version: "v1" });
     console.log('-- setApiVersion test');
     console.log(setVersion);
 
-    const test = await interact.api({ route: "get/allPosts" });
+    const test = await interact.api({ route: "get/allPosts", version: "v2" });
     console.log('route test');
     console.log(test);
+
+    const foundPossible = await interact.findPossibleRoutes() 
+    console.log("find possible")
+    console.log(foundPossible)
+    
+    console.log(interact)
 };
 
 /*
