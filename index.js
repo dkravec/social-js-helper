@@ -1,15 +1,19 @@
 const WebSocket = require('ws')
 require('dotenv').config()
+const { EventEmitter } = require('events');
+
 // helpful info about classes https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes
 const posibleAPIVersions = ["v1", "v2(fake)"];
 
-const Interact = class {
-    apiURL = 'https://interact-api.novapro.net/'
-    possibleAPIVersions = []
-    possibleRoutes = []
+class Interact {
+    apiURL = 'https://interact-api.novapro.net/';
+    possibleAPIVersions = [];
+    possibleRoutes = [];
+    postCache = [];
+    userCache = [];
     
     constructor({beta, environment}) {
-        console.log(beta)
+        // console.log(beta)
         if (
             (environment == 'node') || 
             (environment == 'web')
@@ -61,6 +65,23 @@ const Interact = class {
         return this.headerTokens;
     };
 
+    startws() {
+        if (!this.headerTokens) throw new Error(`There is no tokens set.`);
+        const apiURL = this.apiURL;
+        const headerTokens = this.headerTokens;
+        this.ws = new Connection({ apiURL, headerTokens })
+    }
+
+    // async on(name, listener) {
+    //     if (!this.ws) throw new Error(`There is no connection to websocket.`);
+
+    //     if (!this._events[name]) {
+    //         this._events[name] = [];
+    //     };
+
+    //     this._events[name].push(listener);
+    // };
+    
     checkTokens() {
         return this.headerTokens;
     };
@@ -84,7 +105,7 @@ const Interact = class {
         return { "possibleRoutes" : this.possibleRoutes, "possibleVersions" : this.possibleAPIVersions };
     };
 
-    async api({ route, version }) {
+    async api({ route, version, param, body }) {
         if (!this.possibleRoutes[0] || !this.possibleAPIVersions[0]) await this.findPossibleRoutes();
 
         var useVersion = this.apiVersion;
@@ -102,6 +123,107 @@ const Interact = class {
         const data = await res.json();
 
         return { "error" : false, "response" : res, "data" : data };
+    };
+
+    async get({ route, version, param, body }) {
+        // incomplete
+        if (!this.possibleRoutes[0] || !this.possibleAPIVersions[0]) await this.findPossibleRoutes();
+
+        var useVersion = this.apiVersion;
+        if (version != undefined) useVersion = version;
+
+        var possibleRoute = false;
+        for (const routePossible of this.possibleRoutes) {
+            if (routePossible==`${useVersion}/${route}`) possibleRoute = true;
+        };
+
+        if (!possibleRoute) return { "error" : true, "message" : `The route ${useVersion}/${route}, was not found to be in the possible list. Please check the version number, and the spelling. You can check the Interact API Documentation for more information. Interact.api() Error.` }
+
+        const res = await fetch(`${this.apiURL}${useVersion}/${route}${param? `/${param}` : "/"}`, { method: 'GET', headers: this.headerTokens });
+        if (res.error) return { "error" : true, "response ": res }
+        const data = await res.json();
+
+        if (route == "post") {
+
+        };
+    };
+};
+
+class PostCache {
+
+};
+
+class UserCache {
+
+};
+
+class Connection extends EventEmitter {
+    // test = true
+    _events = {};
+
+    constructor ({apiURL, headerTokens}) {
+        super();
+        console.log("this 3");
+        console.log(this);
+        this.apiURL = apiURL;
+        this.headerTokens = headerTokens;
+        this.ws = new WebSocket(`${apiURL.replace("http", "ws")}?userID=${headerTokens.userid}`);
+        // this.ws = 
+        // if () 
+        // switch (this.beta) {
+        //     case true:
+        //         this.ws = new WebSocket('ws://localhost:5002');
+        //         break;
+        
+        //     default:
+        //         this.ws = new WebSocket('wss://interact.novapro.net/');
+        //         break;
+        // };
+
+        const types = {
+            "message" : 2,
+            "messageDelete" : 3,
+            "messageEdit" : 5,
+            "userJoin" : 6,
+            "userLeave" : 7,
+            "userTyping" : 8,
+            "userStopTyping" : 9,
+            "auth" : 10,
+            "errorMessage" : 101,
+            "connect" : 200,
+            "getGroups" : 201,
+            "createGroup" : 202,
+            "getGroup" : 203,
+            "deleteGroup" : 204,
+            "addUserToGroup" : 205,
+            "removeUserFromGroup" : 206,
+            "changeGroupName" : 207,
+            "sendMessage" : 210,
+            "getGroupMessages" : 211
+        }
+
+        const authTypes = {
+            "pleaseConnect" : 1,
+            "failedAuth" : 3,
+            "successAuth" : 4,
+        }
+
+        this.ws.on('message', (data) => {
+            const message = JSON.parse(data);
+            for (const listener in this._events) {
+                if (types[listener] == message.type) {
+                    const fireCallbacks = (callback) => callback(message);
+                    this._events[listener].forEach(fireCallbacks);
+                };
+            };
+        });
+    };
+
+    on(typeName, listenerFunction, data) {
+        if (!this.ws) throw new Error(`There is no connection to websocket.`);
+        if (!this._events[typeName]) this._events[typeName] = [];
+
+        this._events[typeName].push(listenerFunction);
     };
 };
 
@@ -190,7 +312,9 @@ async function interacTest() {
     const interact = new Interact({ beta: true });
     console.log("-- new interact test");
     console.log(interact);
-
+    // interact.on('event', () => { console.log('triggered!') } );
+    // interact.eventTest()
+    
     const tokenSet = interact.setTokens({
         devToken: process.env.DEVTOKEN,
         appToken: process.env.APPTOKEN,
@@ -226,6 +350,16 @@ async function interacTest() {
     console.log(foundPossible)
     
     console.log(interact)
+    // interact.ws
+
+    interact.startws();
+
+    const handleMyEvent = (data) => console.log('Was fired: ', data);
+    const handleMyEvent2 = (data) => console.log('Was fired2: ', data);
+
+    // await interact.ws.on('testEvent', handleMyEvent);
+    interact.ws.on('auth', handleMyEvent);
+    interact.ws.on('auth', handleMyEvent2, { msgType: 1 });
 };
 
 /*
