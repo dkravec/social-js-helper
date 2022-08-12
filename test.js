@@ -60,9 +60,16 @@ async function interactTest() {
     console.log(saveCache);
    
     // await interact.ws.on('testEvent', handleMyEvent);
+    interact.ws.on('ready', (data) =>{
+        console.log('im ready')
+        interact.ws.send({content: "this is a test"})
+    });
+    
     interact.ws.on('userJoin', handleMyEvent);
     interact.ws.on('auth', handleMyEvent2);
+    interact.ws.on('message', handleMyEvent3);
 };
 
 const handleMyEvent = (data) => console.log('Was fired: ', data);
 const handleMyEvent2 = (data) => console.log('Was fired2: ', data);
+const handleMyEvent3 = (data) => console.log('There was a new message: ', data.message.content);

@@ -112,3 +112,11 @@ console.log(verison);
 - Created a Interact.saveCache test function.
 - Checks for an error after Interact.findPossibleRoutes().
 - Connection Class for ws, now takes in Interact class, which will keep the other data.
+
+### 1.0 (7.2022.08.11)
+- Added type 11, for "ready".
+- New Connection.emitMessage, which emits to whoever is listening, instead of being built into the ws.on(message).
+- added Connection.send, which can send a message to the server.
+- Started InteractGroups Class, which will be used for group Dms.
+- Connection now sends auth tokens when it is requested to do so.
+- Test.js will now send a message once the client is ready.

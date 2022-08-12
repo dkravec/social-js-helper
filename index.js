@@ -271,6 +271,7 @@ class Connection extends EventEmitter {
             "userTyping" : 8,
             "userStopTyping" : 9,
             "auth" : 10,
+            "ready" : 11, // unoffical
             "errorMessage" : 101,
             "connect" : 200,
             "getGroups" : 201,
@@ -289,16 +290,44 @@ class Connection extends EventEmitter {
             "failedAuth" : 3,
             "successAuth" : 4,
         };
+        this.types = types;
+        this.authTypes = authTypes;
 
         this.ws.on('message', (data) => {
             const message = JSON.parse(data);
-            for (const listener in this._events) {
-                if (types[listener] == message.type) {
-                    const fireCallbacks = (callback) => callback(message);
-                    this._events[listener].forEach(fireCallbacks);
+
+            if (message.type == types.auth) {
+                if (message.mesType == 1) {
+                    const authSend = {
+                        type: 10,
+                        apiVersion: "1.0",
+                        userID: this.headerTokens.userid,
+                        mesType: 2,
+                        tokens: this.InteractClass.headerTokens
+                    };
+                    this.ws.send(JSON.stringify(authSend));
+                } else if (message.mesType == 4) {
+                    this.emitMessage({eventType: "11", data: message});
                 };
             };
+            
+            this.emitMessage({eventType: message.type, data: message});
+            // for (const listener in this._events) {
+            //     if (types[listener] == message.type) {
+            //         const fireCallbacks = (callback) => callback(message);
+            //         this._events[listener].forEach(fireCallbacks);
+            //     };
+            // };
         });
+    };
+
+    emitMessage({ eventType, data }) {
+        for (const listener in this._events) {
+            if (this.types[listener] == eventType) {
+                const fireCallbacks = (callback) => callback(data);
+                this._events[listener].forEach(fireCallbacks);
+            };
+        };
     };
 
     on(typeName, listenerFunction, data) {
@@ -307,6 +336,37 @@ class Connection extends EventEmitter {
 
         this._events[typeName].push(listenerFunction);
     };
+    send(data) {
+        const {groupID, content, replyID} = data;
+    
+        if (!groupID) {
+            var messageSend = {
+                type: 2,
+                apiVersion: "1.0",
+            //    roomID,
+                message: {
+                    userID: this.InteractClass.headerTokens.userid,
+                    content,
+                }
+            };
+            if (replyID) messageSend.message.replyID = replyID;
+            this.ws.send(JSON.stringify(messageSend));
+            console.log('done')
+        };
+    };
 };
+
+class InteractGroups {
+
+    constructor({ wsClass, groupID }) {
+        this.wsClass = wsClass;
+        this.groupID = groupID;
+
+    };
+    
+    updateGroupValues({data}) {
+    
+    };
+}
 
 module.exports = Interact;
