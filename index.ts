@@ -1,0 +1,1 @@
+export const interact = (taco = ''): string => `${taco} from my package`;
